@@ -1,4 +1,5 @@
 $ErrorActionPreference = 'Stop'
+$env:PYTHONUTF8 = '1'
 Set-Location $PSScriptRoot
 function Invoke-Checked([string]$Command, [string[]]$Arguments) {
     & $Command @Arguments

@@ -9,7 +9,7 @@ config_dir=root/'src/ImageCutout.Win'
 with zipfile.ZipFile(archive) as z:
     for name in ('update-config.json','model-config.json'):
         raw=z.read(name);json.loads(raw);(config_dir/name).write_bytes(raw)
-conf=json.loads((config_dir/'update-config.json').read_text())
+conf=json.loads((config_dir/'update-config.json').read_text(encoding='utf-8'))
 if conf['repository'] not in ('',os.environ['GITHUB_REPOSITORY']):raise SystemExit('Artifact repository mismatch')
 secret=os.environ.get('UPDATE_SIGNING_PRIVATE_KEY','').strip()
 if not secret:raise SystemExit('Missing UPDATE_SIGNING_PRIVATE_KEY Actions secret')

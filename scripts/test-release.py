@@ -15,7 +15,7 @@ with tempfile.TemporaryDirectory() as t:
     archive=t/'ImageCutout-win-x64-Bundled.zip';out=t/'release'
     subprocess.run([sys.executable,str(work/'scripts/package.py'),str(fake),str(archive)],check=True)
     subprocess.run([sys.executable,str(work/'scripts/make-update-release.py'),'--version',version,'--private-key',str(private),'--archive',str(archive),'--out',str(out)],check=True)
-    d=out/('v'+version); m=d/'update-manifest.json'; s=d/'update-manifest.sig'; meta=json.loads(m.read_text()); data=archive.read_bytes()
+    d=out/('v'+version); m=d/'update-manifest.json'; s=d/'update-manifest.sig'; meta=json.loads(m.read_text(encoding='utf-8')); data=archive.read_bytes()
     assert meta['sha256']==hashlib.sha256(data).hexdigest() and meta['size']==len(data)
     assert hashlib.sha256(data+b'X').hexdigest()!=meta['sha256']
     assert (out/'latest'/m.name).read_bytes()==m.read_bytes()
