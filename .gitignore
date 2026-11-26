@@ -1,0 +1,7 @@
+**/bin/
+**/obj/
+dist/
+*.onnx
+*.part
+*.pem
+__pycache__/

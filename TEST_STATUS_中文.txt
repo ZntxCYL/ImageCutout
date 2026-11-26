@@ -1,0 +1,9 @@
+
+静态源码检查：通过。
+Bash 语法检查：通过。
+OpenSSL 模拟发布：通过（模拟包、RSA 签名、SHA256、大小、篡改检测、国内镜像目录）。
+GitHub Actions 工作流已添加，尚未实际触发。
+真实 .NET 编译 / Windows GPU 推理 / Windows 更新和回滚：未验证。
+
+GitHub Actions YAML 结构检查：通过。
+CI 公钥配置、构建产物签名、缺失密钥拒绝发布模拟测试：通过（非真实 EXE）。

@@ -1,0 +1,106 @@
+name: Windows build and signed release
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    tags: ['v*']
+  pull_request:
+    branches: [main]
+permissions:
+  contents: read
+concurrency:
+  group: imagecutout-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: false
+jobs:
+  checks:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: python scripts/check-source.py
+      - run: python scripts/test-release.py
+      - run: python scripts/test-ci.py
+  build:
+    needs: checks
+    runs-on: windows-2025
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '10.0.x'
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Configure public update sources
+        if: github.event_name != 'pull_request'
+        shell: bash
+        env:
+          UPDATE_PUBLIC_KEY: ${{ vars.UPDATE_PUBLIC_KEY }}
+          UPDATE_MIRRORS: ${{ vars.UPDATE_MIRRORS }}
+          MODEL_MIRRORS: ${{ vars.MODEL_MIRRORS }}
+          MODEL_SHA256: ${{ vars.MODEL_SHA256 }}
+          REPOSITORY_PRIVATE: ${{ github.event.repository.private }}
+        run: python scripts/configure-ci.py
+      - name: Publish Windows x64
+        shell: pwsh
+        run: ./build-windows.ps1
+      - name: Upload portable package
+        uses: actions/upload-artifact@v4
+        with:
+          name: ImageCutout-win-x64
+          path: dist/ImageCutout-win-x64-Bundled.zip
+          if-no-files-found: error
+          compression-level: 0
+          retention-days: 14
+  release:
+    if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v')
+    needs: build
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    environment: release
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - uses: actions/download-artifact@v4
+        with:
+          name: ImageCutout-win-x64
+          path: dist
+      - name: Sign exact build artifact
+        env:
+          UPDATE_SIGNING_PRIVATE_KEY: ${{ secrets.UPDATE_SIGNING_PRIVATE_KEY }}
+        run: python scripts/sign-ci-release.py
+      - name: Upload domestic mirror files
+        uses: actions/upload-artifact@v4
+        with:
+          name: ImageCutout-domestic-mirror-${{ github.ref_name }}
+          path: dist/release/
+          if-no-files-found: error
+          compression-level: 0
+          retention-days: 30
+      - name: Publish GitHub Release (never overwrite an existing version)
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          if gh release view "$GITHUB_REF_NAME" >/dev/null 2>&1; then
+            echo 'Release already exists; do not overwrite a published version.' >&2
+            exit 1
+          fi
+          gh release create "$GITHUB_REF_NAME" --verify-tag --title "ImageCutout $GITHUB_REF_NAME" --generate-notes \
+            "dist/release/$GITHUB_REF_NAME/ImageCutout-win-x64-Bundled.zip" \
+            "dist/release/$GITHUB_REF_NAME/update-manifest.json" \
+            "dist/release/$GITHUB_REF_NAME/update-manifest.sig"
